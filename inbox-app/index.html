@@ -1,0 +1,1284 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#201f25">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Boîte de réception personnalisable : ajoutez des messages reçus à la date de votre choix.">
+<title>Boîte de réception</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wdth,wght@6..144,25..151,400..700&display=swap">
+<style>
+/* =====================================================================
+   Couleurs et tailles relevées sur la capture d'écran (thème sombre).
+   ===================================================================== */
+:root {
+  --bg: #201f25;          /* fond de l'écran */
+  --surface: #141318;     /* fond des cartes (lignes de la liste) */
+  --search: #3a373e;      /* barre de recherche */
+  --on: #e5e1e9;          /* texte principal (non lu) */
+  --on-var: #c8c5d0;      /* texte secondaire / icônes */
+  --muted: #aca9b3;       /* texte des messages lus, étoiles */
+  --dot: #cac4dc;         /* pastille "non lu" */
+  --outline: #5f5e64;
+  --fab: #463e77;
+  --on-fab: #e5deff;
+  --nav: #2a292f;
+  --pill: #474459;
+  --on-pill: #e5dffa;
+  --badge: #feb4ab;
+  --on-badge: #620404;
+  --primary: #c7bfff;
+  --on-primary: #2e2860;
+  --field: #2a292f;
+  --danger: #ffb4ab;
+  --font: "Google Sans Flex", "Google Sans Text", "Google Sans", Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs: 1; /* échelle du texte (réglable dans les paramètres) */
+  --f-title: calc(16.7px * var(--fs));
+  --f-body: calc(14.6px * var(--fs));
+  --f-small: calc(12.6px * var(--fs));
+  --f-badge: calc(12.3px * var(--fs));
+
+  --nav-h: 48px;
+  --side: 8.2px;
+  --gap: 2.14px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html { background: var(--bg); color-scheme: dark; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--on);
+  font-family: var(--font); font-optical-sizing: auto; font-stretch: 90%;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+}
+html.locked body { overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+svg.ic { width: 24px; height: 24px; fill: currentColor; display: block; flex: none; }
+.icon-btn { position: relative; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; color: var(--on-var); flex: none; }
+.icon-btn:active { background: rgba(255,255,255,.08); }
+
+#app { max-width: 560px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; position: relative; }
+
+/* ---------------- Barre du haut ---------------- */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center;
+  height: calc(72px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 15px 0 16px;
+  background: var(--bg); transition: transform .25s ease;
+  box-shadow: 0 1px 0 var(--bg); /* évite un liseré sur certains écrans */
+}
+.topbar.hide { transform: translateY(-100%); }
+.menu-btn { width: 24px; height: 24px; color: var(--on-var); margin-right: 20.4px; position: relative; flex: none; }
+.menu-btn::before, .account::before { content: ""; position: absolute; inset: -12px; }
+.menu-btn.back { color: var(--on); }
+.search {
+  flex: 1; min-width: 0; height: 56px; border-radius: 28px; background: var(--search);
+  display: flex; align-items: center; padding-left: 21px;
+}
+.search input {
+  flex: 1; min-width: 0; height: 100%; padding: 0; background: none; border: 0; outline: 0;
+  color: var(--on); font-size: var(--f-title); letter-spacing: 0;
+}
+.search input::placeholder { color: var(--on-var); opacity: 1; }
+.search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.search .icon-btn { width: 44px; height: 44px; margin-right: 6px; }
+.account {
+  position: relative; width: 32px; height: 32px; border-radius: 50%; margin-left: 16.8px; flex: none;
+  background: #00579c; color: #fff; font-size: 17px; font-weight: 450; display: grid; place-items: center; overflow: hidden;
+}
+.account img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------------- Liste ---------------- */
+main { padding-bottom: calc(var(--nav-h) + 96px + env(safe-area-inset-bottom)); }
+.section-label {
+  height: 49.8px; padding: 18.3px 17px 0; font-size: calc(15px * var(--fs)); line-height: 20px;
+  color: var(--on-var); font-weight: 450; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.list { list-style: none; margin: 0; padding: 0 var(--side); display: flex; flex-direction: column; gap: var(--gap); }
+.row { position: relative; border-radius: 4px; overflow: hidden; background: var(--surface); }
+.row:first-child { border-top-left-radius: 16px; border-top-right-radius: 16px; }
+.row:last-child { border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
+.row-inner { position: relative; background: var(--surface); cursor: pointer; user-select: none; -webkit-user-select: none; }
+.row-inner:active { background: #1c1b21; }
+.row.msg { touch-action: pan-y; }
+
+/* Message */
+.msg .row-inner {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) 24px;
+  padding: 11.3px 16px 13.8px 16px; min-height: 92.86px;
+}
+.avatar {
+  grid-column: 1; grid-row: 1 / 4; margin-top: 4.4px; align-self: start;
+  width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: #81868c; color: #fff; font-size: 22px; line-height: 1; font-weight: 400; flex: none;
+}
+.avatar svg { width: 100%; height: 100%; display: block; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.r-top { position: relative; top: 1.5px; grid-column: 2 / 4; grid-row: 1; display: flex; align-items: baseline; min-width: 0; margin-left: 17.6px; height: calc(26px * var(--fs)); line-height: calc(26px * var(--fs)); }
+.from { font-size: var(--f-title); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.count { font-size: var(--f-body); color: var(--on-var); margin-left: 8.6px; flex: none; }
+.date { margin-left: auto; padding-left: 12px; font-size: var(--f-small); color: var(--muted); white-space: nowrap; flex: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot); margin-left: 9.2px; flex: none; align-self: center; }
+.r-subject, .r-snippet {
+  grid-column: 2; margin-left: 17.6px; margin-right: 8px; font-size: var(--f-body); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.r-subject { grid-row: 2; line-height: calc(21px * var(--fs)); height: calc(21px * var(--fs)); }
+.r-snippet { grid-row: 3; line-height: calc(20px * var(--fs)); height: calc(20px * var(--fs)); position: relative; top: -1px; }
+.unread .from, .unread .date, .unread .r-subject { color: var(--on); font-weight: 650; }
+.star { grid-column: 3; grid-row: 2 / 4; align-self: end; width: 24px; height: 24px; margin-bottom: 2.2px; color: var(--muted); position: relative; }
+.star::before { content: ""; position: absolute; inset: -12px; }
+.star.on { color: #f6bf26; }
+.r-chips { grid-column: 2 / 4; grid-row: 4; margin: 10px 0 1px 17.6px; display: flex; gap: 8px; min-width: 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px 0 8px; max-width: 100%;
+  border: 1px solid var(--outline); border-radius: 16px; color: var(--on-var); font-size: var(--f-small); min-width: 0;
+}
+.chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-ic { width: 18px; height: 18px; border-radius: 3px; display: grid; place-items: center; color: #fff; font-size: 7px; font-weight: 700; flex: none; letter-spacing: -.2px; }
+
+/* Ligne de catégorie (Promotions, Notifications...) */
+.bundle .row-inner {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; align-content: start;
+  padding: 7.8px 16px 7.3px 16px; min-height: 65px;
+}
+.b-icon { grid-column: 1; grid-row: 1 / 3; display: grid; place-items: center; position: relative; top: -1px; }
+.b-title { grid-column: 2; grid-row: 1; margin-left: 17.6px; font-size: var(--f-title); line-height: calc(26px * var(--fs)); font-weight: 650; color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-sub { grid-column: 2; grid-row: 2; margin-left: 17.6px; font-size: var(--f-body); line-height: calc(23.9px * var(--fs)); font-weight: 650; color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bundle.read .b-title, .bundle.read .b-sub { color: var(--muted); font-weight: 400; }
+.b-badge {
+  grid-column: 3; grid-row: 1 / 3; height: 24px; line-height: 24px; padding: 0 6.4px; margin-left: 12px; border-radius: 12px;
+  font-size: var(--f-badge); font-weight: 500; color: #040000; white-space: nowrap;
+}
+
+/* Écran vide */
+.empty { text-align: center; color: var(--muted); padding: 64px 32px; font-size: var(--f-body); line-height: 1.5; }
+.empty svg { width: 64px; height: 64px; fill: var(--outline); margin: 0 auto 16px; display: block; }
+
+/* Glisser pour supprimer */
+.swipe-bg { position: absolute; inset: 0; background: #8c1d18; color: #ffdad6; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; }
+.row.collapsing { transition: height .2s ease, margin .2s ease; }
+
+/* ---------------- Bouton flottant ---------------- */
+.fab {
+  position: fixed; z-index: 30; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));
+  right: max(24px, calc(50% - 280px + 24px));
+  height: 56px; border-radius: 16px; background: var(--fab); color: var(--on-fab);
+  display: flex; align-items: center; padding: 0 17px 0 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3), 0 4px 8px 3px rgba(0,0,0,.15);
+  transition: transform .2s ease, padding .2s ease;
+}
+.fab .ic { width: 24px; height: 24px; }
+.fab-label { font-size: var(--f-title); font-weight: 550; white-space: nowrap; overflow: hidden; max-width: 260px; margin-left: 9.6px; transition: max-width .2s ease, margin .2s ease, opacity .15s; }
+.fab.shrink { padding: 0 16px; }
+.fab.shrink .fab-label { max-width: 0; margin-left: 0; opacity: 0; }
+.fab.lift { transform: translateY(-60px); }
+
+/* ---------------- Barre de navigation du bas ---------------- */
+.bottom-nav {
+  position: fixed; z-index: 25; bottom: 0; left: 0; right: 0; margin: 0 auto; max-width: 560px;
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding: 0 23.2px env(safe-area-inset-bottom);
+  background: var(--nav); display: flex;
+}
+.nav-item { flex: 1; display: grid; place-items: center; position: relative; }
+.nav-pill { position: relative; width: 56.4px; height: 28px; border-radius: 14px; display: grid; place-items: center; color: var(--on-var); }
+.nav-item.active .nav-pill { background: var(--pill); color: var(--on-pill); }
+.nav-badge {
+  position: absolute; left: 32.9px; top: -4.3px; height: 15.7px; min-width: 16px; padding: 0 2.3px; border-radius: 8px;
+  background: var(--badge); color: var(--on-badge); font: 12px/15.7px "Droid Sans Mono", "Roboto Mono", ui-monospace, monospace; text-align: center;
+}
+
+/* ---------------- Snackbar ---------------- */
+.snackbar {
+  position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));
+  max-width: 536px; margin: 0 auto; min-height: 48px; border-radius: 4px; padding: 6px 8px 6px 16px;
+  background: #e5e1e9; color: #313033; display: flex; align-items: center; gap: 8px; font-size: 14px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.35); transform: translateY(20px); opacity: 0; pointer-events: none; transition: transform .2s, opacity .2s;
+}
+.snackbar.show { transform: none; opacity: 1; pointer-events: auto; }
+.snackbar span { flex: 1; }
+.snackbar button { color: #5b4fb8; font-weight: 600; padding: 10px 8px; border-radius: 4px; }
+
+/* ---------------- Calques plein écran (lecture, édition, paramètres) ---------------- */
+.layer {
+  position: fixed; inset: 0; z-index: 40; background: var(--surface); overflow-y: auto; overscroll-behavior: contain;
+  max-width: 560px; margin: 0 auto; animation: layerIn .2s ease;
+}
+@keyframes layerIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.appbar {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 2px;
+  height: calc(64px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 4px 0; background: var(--surface);
+}
+.appbar .title { flex: 1; font-size: 20px; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.appbar .spacer { flex: 1; }
+.btn-primary { height: 40px; padding: 0 20px; border-radius: 20px; background: var(--primary); color: var(--on-primary); font-weight: 600; font-size: 14px; margin-right: 8px; }
+.btn-text { height: 40px; padding: 0 12px; border-radius: 20px; color: var(--primary); font-weight: 600; font-size: 14px; }
+.btn-tonal { height: 40px; padding: 0 18px; border-radius: 20px; background: #4a4458; color: #e8def8; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+.btn-danger { color: var(--danger); }
+
+/* Lecture d'un message */
+.d-head { display: flex; align-items: flex-start; gap: 8px; padding: 8px 8px 0 16px; }
+.d-subject { flex: 1; margin: 6px 0 0; font-size: 22px; line-height: 30px; font-weight: 400; color: var(--on); word-break: break-word; }
+.d-label { display: inline-block; vertical-align: 3px; margin-left: 6px; padding: 0 6px; height: 20px; line-height: 20px; border-radius: 4px; background: var(--search); color: var(--on-var); font-size: 12px; font-weight: 500; }
+.d-head .star { width: 48px; height: 48px; display: grid; place-items: center; }
+.d-head .star::before { display: none; }
+.d-sender { display: flex; align-items: center; gap: 12px; padding: 16px 4px 4px 16px; }
+.d-sender .avatar { margin: 0; }
+.d-who { flex: 1; min-width: 0; }
+.d-line1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.d-name { font-size: 16px; font-weight: 600; color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-date { font-size: 12.5px; color: var(--muted); white-space: nowrap; flex: none; }
+.d-to { display: inline-flex; align-items: center; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.d-to svg { width: 18px; height: 18px; fill: currentColor; }
+.d-details { margin: 8px 16px 0; padding: 12px 14px; border: 1px solid var(--outline); border-radius: 12px; font-size: 13.5px; color: var(--on-var); line-height: 1.7; }
+.d-details b { color: var(--muted); font-weight: 500; display: inline-block; min-width: 52px; }
+.d-body { padding: 20px 16px 8px; font-size: 15px; line-height: 1.55; color: var(--on); white-space: pre-wrap; word-break: break-word; }
+.d-body a { color: var(--primary); }
+.d-attach { margin: 12px 16px 0; display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--outline); border-radius: 12px; color: var(--on); font-size: 14px; }
+.d-attach .file-ic { width: 32px; height: 32px; font-size: 10px; border-radius: 6px; }
+.d-attach span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-actions { display: flex; gap: 8px; padding: 28px 16px calc(32px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+.pill-btn { height: 40px; padding: 0 16px 0 12px; border-radius: 20px; border: 1px solid var(--outline); color: var(--on); display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+.pill-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+/* Formulaire */
+.form { padding: 4px 16px calc(40px + env(safe-area-inset-bottom)); }
+.preview-label, .group-title { font-size: 12.5px; letter-spacing: .4px; text-transform: uppercase; color: var(--primary); font-weight: 600; margin: 18px 0 10px 4px; }
+.preview { margin: 0 -8px; background: var(--bg); padding: 8px; border-radius: 20px; }
+.preview .row { border-radius: 16px; pointer-events: none; }
+.field { display: block; margin-bottom: 14px; }
+.field > span { display: block; font-size: 13px; color: var(--on-var); margin: 0 0 6px 4px; }
+.field input, .field textarea, .field select {
+  width: 100%; background: var(--field); border: 1.5px solid transparent; border-radius: 12px;
+  padding: 12px 14px; font-size: 16px; color: var(--on); outline: 0;
+}
+.field textarea { min-height: 150px; resize: vertical; line-height: 1.45; }
+.field input:focus, .field textarea:focus, .field select:focus { border-color: var(--primary); }
+.field .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0 4px; display: block; }
+.inline { display: flex; gap: 8px; align-items: center; }
+.inline > input { flex: 1; min-width: 0; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.qchip { height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--outline); color: var(--on-var); font-size: 13.5px; }
+.chips-select { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-select label { position: relative; }
+.chips-select input { position: absolute; opacity: 0; pointer-events: none; }
+.chips-select span {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 8px;
+  border: 1px solid var(--outline); color: var(--on-var); font-size: 14px; cursor: pointer;
+}
+.chips-select span svg { width: 18px; height: 18px; fill: currentColor; }
+.chips-select input:checked + span { background: #4a4458; border-color: #4a4458; color: #e8def8; }
+.chips-select input:focus-visible + span { outline: 2px solid var(--primary); }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 4px; font-size: 15.5px; color: var(--on); }
+.switch-row small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.switch { position: relative; width: 52px; height: 32px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.switch i { position: absolute; inset: 0; border-radius: 16px; background: #36343b; border: 2px solid #938f99; transition: background .15s, border-color .15s; }
+.switch i::after { content: ""; position: absolute; left: 6px; top: 6px; width: 16px; height: 16px; border-radius: 50%; background: #938f99; transition: all .15s; }
+.switch input:checked + i { background: var(--primary); border-color: var(--primary); }
+.switch input:checked + i::after { left: 22px; top: 2px; width: 24px; height: 24px; background: var(--on-primary); }
+.seg { display: flex; border: 1px solid var(--outline); border-radius: 20px; overflow: hidden; margin-bottom: 14px; }
+.seg label { flex: 1; position: relative; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: grid; place-items: center; height: 40px; font-size: 14px; color: var(--on-var); border-left: 1px solid var(--outline); cursor: pointer; }
+.seg label:first-child span { border-left: 0; }
+.seg input:checked + span { background: #4a4458; color: #e8def8; font-weight: 600; }
+.av-edit { display: flex; gap: 16px; align-items: flex-start; }
+.av-edit .avatar { margin: 4px 0 0; width: 56px; height: 56px; font-size: 30px; }
+.av-edit .opts { flex: 1; min-width: 0; }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 12px; }
+.swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--surface); }
+.swatch.on { border-color: var(--on); }
+.swatch.custom { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.swatch.custom input { position: absolute; inset: -8px; opacity: 0; cursor: pointer; }
+.danger-zone { margin-top: 24px; }
+.list-btn { display: flex; align-items: center; gap: 16px; width: 100%; padding: 14px 4px; font-size: 15.5px; color: var(--on); text-align: left; border-radius: 12px; }
+.list-btn svg { color: var(--on-var); }
+.list-btn small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.list-btn:active { background: rgba(255,255,255,.06); }
+.badge-row { display: grid; grid-template-columns: 1fr 140px 84px; gap: 8px; align-items: center; margin-bottom: 10px; }
+.badge-row .lbl { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: var(--on); min-width: 0; }
+.badge-row .lbl svg { width: 20px; height: 20px; }
+.badge-row select, .badge-row input { width: 100%; background: var(--field); border: 1.5px solid transparent; border-radius: 10px; padding: 9px 10px; font-size: 14px; color: var(--on); outline: 0; }
+.badge-row input:disabled { opacity: .35; }
+
+/* ---------------- Tiroir (menu ☰) ---------------- */
+.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s; }
+.scrim.show { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; z-index: 51; top: 0; bottom: 0; left: 0; width: min(320px, 84vw); background: var(--bg);
+  border-radius: 0 16px 16px 0; transform: translateX(-105%); transition: transform .25s ease; overflow-y: auto;
+  padding: calc(12px + env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom));
+}
+.drawer.show { transform: none; }
+.drawer-head { font-size: 22px; padding: 14px 16px 18px; color: var(--on); }
+.d-item { display: flex; align-items: center; gap: 12px; width: 100%; height: 52px; padding: 0 16px; border-radius: 26px; font-size: 15px; font-weight: 500; color: var(--on-var); text-align: left; }
+.d-item .lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-item .cnt { font-size: 13px; font-weight: 600; }
+.d-item.active { background: #4a4458; color: #e8def8; }
+.d-sep { height: 1px; background: #49454f; margin: 10px 16px; }
+.d-caption { font-size: 13px; color: var(--muted); padding: 10px 16px 6px; }
+
+/* ---------------- Boîte de dialogue ---------------- */
+.dialog-wrap { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.5); display: grid; place-items: center; padding: 24px; }
+.dialog { width: min(100%, 340px); background: #2b2930; border-radius: 28px; padding: 24px; }
+.dialog h2 { margin: 0 0 14px; font-size: 22px; font-weight: 400; }
+.dialog p { margin: 0 0 22px; color: var(--on-var); font-size: 14.5px; line-height: 1.5; }
+.dialog .acts { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (min-width: 561px) {
+  body { background: #17161b; }
+  #app { background: var(--bg); box-shadow: 0 0 0 1px #2b2930; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar" id="topbar">
+    <button class="menu-btn" id="menuBtn" aria-label="Menu"></button>
+    <div class="search">
+      <input id="searchInput" type="search" placeholder="Rechercher dans les messages" autocomplete="off" enterkeyhint="search" aria-label="Rechercher dans les messages">
+      <button class="icon-btn" id="searchClear" aria-label="Effacer la recherche" hidden></button>
+    </div>
+    <button class="account" id="accountBtn" aria-label="Compte et paramètres">S</button>
+  </header>
+
+  <main>
+    <div class="section-label" id="sectionLabel">Principale</div>
+    <ul class="list" id="list"></ul>
+    <div class="empty" id="empty" hidden></div>
+  </main>
+
+  <button class="fab" id="fab" aria-label="Nouveau message"><span id="fabIcon"></span><span class="fab-label">Nouveau message</span></button>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="navMail" aria-label="Messagerie">
+      <span class="nav-pill"><span id="navMailIcon"></span><span class="nav-badge" id="navBadge" hidden></span></span>
+    </button>
+    <button class="nav-item" id="navMeet" aria-label="Visio">
+      <span class="nav-pill" id="navMeetIcon"></span>
+    </button>
+  </nav>
+
+  <div class="snackbar" id="snackbar" role="status"><span id="snackText"></span><button id="snackAction" hidden></button></div>
+
+  <section class="layer" id="detailLayer" hidden></section>
+  <section class="layer" id="editorLayer" hidden></section>
+  <section class="layer" id="settingsLayer" hidden></section>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer" aria-label="Menu"></aside>
+  <div class="dialog-wrap" id="dialogWrap" hidden></div>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+  <input type="file" id="avatarFile" accept="image/*" hidden>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Icônes (Material Icons, licence Apache 2.0)
+   ===================================================================== */
+const ICONS = {
+  menu: 'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z',
+  back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+  close: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  star: 'M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z',
+  starOn: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
+  edit: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+  editOutline: 'M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z',
+  mail: 'M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z',
+  mailOutline: 'M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6zm-2 0-8 5-8-5h16zm0 12H4V8l8 5 8-5v10z',
+  tag: 'M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM13 20.01 4 11V4h7v-.01l9 9-7 7.02zM6.5 5C7.33 5 8 5.67 8 6.5S7.33 8 6.5 8 5 7.33 5 6.5 5.67 5 6.5 5z',
+  info: 'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
+  people: 'M16.5 13c-1.2 0-3.07.34-4.5 1-1.43-.67-3.3-1-4.5-1C5.33 13 1 14.08 1 16.25V19h22v-2.75c0-2.17-4.33-3.25-6.5-3.25zm-4 4.5h-10v-1.25c0-.54 2.56-1.75 5-1.75s5 1.21 5 1.75v1.25zm9 0H14v-1.25c0-.46-.2-.86-.52-1.22.88-.3 1.96-.53 3.02-.53 2.44 0 5 1.21 5 1.75v1.25zM7.5 12c1.93 0 3.5-1.57 3.5-3.5S9.43 5 7.5 5 4 6.57 4 8.5 5.57 12 7.5 12zm0-5.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm9 5.5c1.93 0 3.5-1.57 3.5-3.5S18.43 5 16.5 5 13 6.57 13 8.5s1.57 3.5 3.5 3.5zm0-5.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z',
+  forum: 'M15 4v7H5.17L4 12.17V4h11m1-2H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1zm5 4h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1z',
+  inbox: 'M19 3H4.99C3.88 3 3.01 3.89 3.01 5L3 19c0 1.1.88 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2zm0 12h-4c0 1.66-1.35 3-3 3s-3-1.34-3-3H4.99V5H19v10z',
+  delete: 'M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z',
+  reply: 'M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z',
+  replyAll: 'M7 8V5l-7 7 7 7v-3l-4-4 4-4zm6 1V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z',
+  forward: 'M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z',
+  expand: 'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  add: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  settings: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  download: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+  upload: 'M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z',
+  restore: 'M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
+  clear: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
+  photo: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z',
+  search: 'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+};
+const svg = (name, cls = 'ic') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
+const VIDEO_SVG = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="6.2" width="12.6" height="11.6" rx="2.2" fill="none"/><path d="M15.6 10.4l5.1-3.1v9.4l-5.1-3.1" fill="none"/><circle cx="7.2" cy="14.2" r="1.25" fill="currentColor" stroke="none"/></svg>';
+const PERSON_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="12.8" r="5.1" fill="#fff"/><path fill="#fff" d="M9.3 27.2C10.6 23.2 15 20.8 20 20.8s9.4 2.4 10.7 6.4c-2.2 3.4-6.2 5.2-10.7 5.2s-8.5-1.8-10.7-5.2z"/></svg>';
+
+/* =====================================================================
+   Catégories
+   ===================================================================== */
+const CATS = {
+  principale:    { label: 'Principale',      icon: 'inbox' },
+  promotions:    { label: 'Promotions',      icon: 'tag',    color: '#80c994', badge: '#a6d9b4' },
+  social:        { label: 'Réseaux sociaux', icon: 'people', color: '#7cacf8', badge: '#a8c7fa' },
+  notifications: { label: 'Notifications',   icon: 'info',   color: '#fa8f3c', badge: '#fcae70' },
+  forums:        { label: 'Forums',          icon: 'forum',  color: '#c58af9', badge: '#d7aefb' },
+};
+const BUNDLE_CATS = ['promotions', 'social', 'notifications', 'forums'];
+const SWATCHES = ['#017e6e', '#00579c', '#f6bf26', '#e8710a', '#d93025', '#1e8e3e', '#9334e6', '#e52592', '#12b5cb', '#795548', '#5f6368'];
+
+/* =====================================================================
+   Données de démonstration (reproduisent la capture d'écran)
+   ===================================================================== */
+function demoData() {
+  const L = (letter, color) => ({ type: 'letter', letter, color });
+  const P = { type: 'person' };
+  const msgs = [
+    { from: 'Grammarly', subject: 'Congrats on taking the first step toward better writing', body: 'Congrats on taking the first step toward clearer, more confident writing!\n\nHere are three tips to get the most out of your new account.', date: '2026-11-15T09:02', unread: true, category: 'promotions', avatar: L('G', '#017e6e') },
+    { from: 'Grammarly', subject: 'Action required: Finish setting up your account', body: "Welcome! Here's how to get up and running in just a few minutes.\n\nFinish setting up your account to get personalized writing suggestions everywhere you write.\n\nThe Grammarly Team", date: '2026-11-14T16:20', unread: true, category: 'principale', avatar: L('G', '#017e6e') },
+    { from: 'Google', subject: 'You shared some Google Account data with Instinct', body: 'Keep track of your Google Account data\n\nYou recently gave Instinct access to some of your Google Account data. You can review and remove this access at any time from your account settings.', date: '2026-11-14T10:05', unread: true, category: 'principale', avatar: P },
+    { from: 'ChatGPT', subject: '4 new image generations are ready', body: 'Your 4 new images are ready. Open the app to view and download them.', date: '2026-11-13T21:10', unread: true, category: 'notifications', avatar: L('C', '#5f6368') },
+    { from: 'Banque en ligne', subject: 'Votre relevé de compte est disponible', body: 'Bonjour,\n\nVotre relevé de compte du mois d’octobre est disponible dans votre espace client.', date: '2026-11-05T08:30', unread: true, category: 'notifications', avatar: L('B', '#00579c') },
+    { from: 'Google', subject: 'Security alert', body: 'You allowed Instinct access to some of your Google Account data\n\nIf you did not grant access, you should check this activity and secure your account.', date: '2026-11-11T18:42', unread: false, category: 'principale', avatar: P },
+    { from: 'moi, Kerry', count: 2, subject: 'Annulation de la facture impayée du 3 novembre', body: 'Hi there,\n\nThanks for getting in touch about the unpaid invoice from November 3rd. I have cancelled it on our side, so no further action is needed.\n\nBest regards,\nKerry', date: '2026-11-09T14:31', unread: false, category: 'principale', avatar: P },
+    { from: 'Digital Science', subject: 'Credit note for your order', body: 'Credit note from Digital Science for your recent order.\n\nPlease find the credit note attached to this email.', attachment: 'Credit_note_DS-2026-1187.pdf', date: '2026-11-07T09:15', unread: false, category: 'principale', avatar: L('D', '#f6bf26') },
+    { from: 'Mode & Co', subject: '-30 % sur toute la collection d’hiver', body: 'Profitez de -30 % sur toute la collection d’hiver jusqu’à dimanche.', date: '2026-11-06T12:00', unread: false, category: 'promotions', avatar: L('M', '#e52592') },
+    { from: 'Marie Dupont', subject: 'Re: Réunion de jeudi', body: 'Parfait, on se retrouve jeudi à 14 h en salle B.\n\nÀ jeudi,\nMarie', date: '2026-10-30T17:48', unread: false, category: 'principale', avatar: L('M', '#e8710a') },
+    { from: 'Thomas', subject: 'Photos du week-end', body: 'Salut ! Voici les photos du week-end, il y en a de très belles.', attachment: 'photos_weekend.zip', date: '2026-10-12T20:03', unread: false, category: 'principale', avatar: L('T', '#1e8e3e') },
+    { from: 'Service client', subject: 'Votre demande a bien été prise en compte', body: 'Bonjour,\n\nNous avons bien reçu votre demande et reviendrons vers vous très rapidement.\n\nCordialement,\nLe service client', date: '2025-12-02T11:20', unread: false, category: 'principale', avatar: P },
+  ];
+  return {
+    version: 1,
+    settings: {
+      accountLetter: 'S', accountColor: '#00579c', accountImage: '', fontScale: 1,
+      inboxBadge: { mode: 'custom', value: 150 },
+      bundleBadges: {
+        promotions: { mode: 'hidden', value: 0 },
+        social: { mode: 'auto', value: 0 },
+        notifications: { mode: 'custom', value: 30 },
+        forums: { mode: 'auto', value: 0 },
+      },
+    },
+    messages: msgs.map((m, i) => normalizeMessage({ ...m, id: 'demo' + (i + 1) })),
+  };
+}
+
+/* =====================================================================
+   Stockage (localStorage : les données restent sur l'appareil)
+   ===================================================================== */
+const STORE_KEY = 'boite-reception.v1';
+let db;
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function cleanColor(c, fallback) { return /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : fallback; }
+function cleanImage(src) { return /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[a-z0-9+/=]+$/i.test(String(src || '')) ? src : ''; }
+function cleanDate(s) {
+  s = String(s || '');
+  const d = new Date(s);
+  if (!s || isNaN(d)) return toLocalInput(new Date());
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s) ? s : toLocalInput(d);
+}
+function normalizeMessage(m) {
+  m = m || {};
+  const av = m.avatar || {};
+  const type = ['person', 'letter', 'image'].includes(av.type) ? av.type : 'person';
+  return {
+    id: String(m.id || uid()),
+    from: String(m.from || 'Expéditeur inconnu').slice(0, 200),
+    email: String(m.email || '').slice(0, 200),
+    subject: String(m.subject || '').slice(0, 500),
+    body: String(m.body || '').slice(0, 20000),
+    date: cleanDate(m.date),
+    unread: !!m.unread,
+    starred: !!m.starred,
+    category: CATS[m.category] ? m.category : 'principale',
+    count: Math.max(1, Math.min(999, parseInt(m.count, 10) || 1)),
+    attachment: String(m.attachment || '').slice(0, 200),
+    avatar: {
+      type,
+      letter: String(av.letter || '').slice(0, 2),
+      color: cleanColor(av.color, '#00579c'),
+      image: type === 'image' ? cleanImage(av.image) : '',
+    },
+  };
+}
+function normalizeBadge(b, def) {
+  b = b || def;
+  return { mode: ['auto', 'custom', 'hidden'].includes(b.mode) ? b.mode : def.mode, value: Math.max(0, parseInt(b.value, 10) || 0) };
+}
+function normalizeDB(d) {
+  const def = demoData();
+  if (!d || typeof d !== 'object' || !Array.isArray(d.messages)) return def;
+  const s = d.settings || {};
+  const bb = s.bundleBadges || {};
+  return {
+    version: 1,
+    settings: {
+      accountLetter: String(s.accountLetter || 'S').slice(0, 2),
+      accountColor: cleanColor(s.accountColor, '#00579c'),
+      accountImage: cleanImage(s.accountImage),
+      fontScale: [0.9, 1, 1.1, 1.2].includes(Number(s.fontScale)) ? Number(s.fontScale) : 1,
+      inboxBadge: normalizeBadge(s.inboxBadge, def.settings.inboxBadge),
+      bundleBadges: Object.fromEntries(BUNDLE_CATS.map(c => [c, normalizeBadge(bb[c], def.settings.bundleBadges[c])])),
+    },
+    messages: d.messages.map(normalizeMessage),
+  };
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return normalizeDB(JSON.parse(raw));
+  } catch (e) { /* stockage indisponible : on part des données de démo */ }
+  return demoData();
+}
+function persist() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); return true; }
+  catch (e) { snack('Impossible d’enregistrer : stockage du navigateur plein ou bloqué.'); return false; }
+}
+
+/* =====================================================================
+   Utilitaires
+   ===================================================================== */
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = n => String(n).padStart(2, '0');
+function toLocalInput(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+const ts = m => new Date(m.date).getTime() || 0;
+const fmtDayMonth = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
+const fmtTime = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const fmtFull = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+/* Format des dates comme dans la liste : "11:45" (aujourd'hui), "14 nov." (cette année), "14/11/2025" (années précédentes) */
+function fmtListDate(str) {
+  const d = new Date(str), now = new Date();
+  if (isNaN(d)) return '';
+  if (sameDay(d, now)) return fmtTime.format(d);
+  if (d.getFullYear() === now.getFullYear()) return fmtDayMonth.format(d);
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+function snippet(body) { return String(body || '').replace(/\s+/g, ' ').trim().slice(0, 240); }
+function initial(name) { const t = String(name || '').replace(/^moi,\s*/i, '').trim(); return (t[0] || '?').toUpperCase(); }
+function textOn(hex) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return lum > 0.62 ? `rgb(${Math.round(r * .18)},${Math.round(g * .18)},${Math.round(b * .18)})` : '#fff';
+}
+function badgeText(n) { return n > 99 ? '99+' : String(n); }
+function fileIcon(name) {
+  const ext = (String(name).split('.').pop() || '').toLowerCase();
+  const map = { pdf: ['#d93025', 'PDF'], doc: ['#4285f4', 'DOC'], docx: ['#4285f4', 'DOC'], xls: ['#188038', 'XLS'], xlsx: ['#188038', 'XLS'], csv: ['#188038', 'CSV'], ppt: ['#e8710a', 'PPT'], pptx: ['#e8710a', 'PPT'], zip: ['#5f6368', 'ZIP'], jpg: ['#d93025', 'IMG'], jpeg: ['#d93025', 'IMG'], png: ['#d93025', 'IMG'], gif: ['#d93025', 'GIF'], mp4: ['#d93025', 'VID'], txt: ['#5f6368', 'TXT'] };
+  const [bg, label] = map[ext] || ['#5f6368', 'FIC'];
+  return `<span class="file-ic" style="background:${bg}">${label}</span>`;
+}
+function linkify(html) { return html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
+
+function swatchesHTML(inputId, current) {
+  return SWATCHES.map(c => `<button class="swatch" data-color="${c}" style="background:${c}" aria-label="Couleur ${c}"></button>`).join('')
+    + `<span class="swatch custom" title="Autre couleur"><input type="color" id="${inputId}" value="${/^#[0-9a-f]{6}$/i.test(current) ? current : '#00579c'}" aria-label="Autre couleur"></span>`;
+}
+function markSwatches(box, current) {
+  box.querySelectorAll('[data-color]').forEach(b => b.classList.toggle('on', b.dataset.color === current));
+  box.querySelector('.custom').classList.toggle('on', !SWATCHES.includes(current));
+}
+
+function avatarHTML(m, extraStyle = '') {
+  const av = m.avatar || { type: 'person' };
+  if (av.type === 'image' && av.image) return `<span class="avatar" style="${extraStyle}"><img src="${av.image}" alt=""></span>`;
+  if (av.type === 'letter') {
+    const bg = cleanColor(av.color, '#00579c');
+    return `<span class="avatar" style="background:${bg};color:${textOn(bg)};${extraStyle}">${esc((av.letter || initial(m.from)).slice(0, 2))}</span>`;
+  }
+  return `<span class="avatar" style="${extraStyle}">${PERSON_SVG}</span>`;
+}
+
+/* =====================================================================
+   Navigation (le bouton « retour » d'Android fonctionne)
+   ===================================================================== */
+const DEFAULT_ROUTE = { screen: 'list', view: 'principale' };
+function route() { return (history.state && history.state.screen) ? history.state : DEFAULT_ROUTE; }
+function routeHash(r) {
+  if (r.screen === 'msg') return '#/message/' + r.id;
+  if (r.screen === 'edit') return r.id ? '#/modifier/' + r.id : '#/nouveau';
+  if (r.screen === 'settings') return '#/parametres';
+  return r.view && r.view !== 'principale' ? '#/' + r.view : '#/';
+}
+function go(r, replace = false) {
+  history[replace ? 'replaceState' : 'pushState'](r, '', routeHash(r));
+  render();
+}
+function back() {
+  if (history.state && history.state.depth > 0) history.back();
+  else go({ ...DEFAULT_ROUTE }, true);
+}
+function push(r) { go({ ...r, depth: (route().depth || 0) + 1 }); }
+function home() {
+  const d = route().depth || 0;
+  if (d > 0) history.go(-d); else go({ ...DEFAULT_ROUTE }, true);
+}
+window.addEventListener('popstate', render);
+
+/* =====================================================================
+   Rendu de la liste
+   ===================================================================== */
+let query = '';
+const topbar = $('#topbar'), list = $('#list'), fab = $('#fab');
+
+function currentView() { const r = route(); return r.view || 'principale'; }
+
+function bundleBadge(cat, unreadCount) {
+  const b = db.settings.bundleBadges[cat];
+  if (!b || b.mode === 'hidden') return '';
+  const n = b.mode === 'custom' ? b.value : unreadCount;
+  if (!n) return '';
+  return `${n} nouveau${n > 1 ? 'x' : ''}`;
+}
+
+function rowHTML(m) {
+  return `<li class="row msg${m.unread ? ' unread' : ''}" data-id="${esc(m.id)}">
+    <div class="swipe-bg">${svg('delete')}${svg('delete')}</div>
+    <div class="row-inner">
+      ${avatarHTML(m)}
+      <div class="r-top"><span class="from">${esc(m.from)}</span>${m.count > 1 ? `<span class="count">${m.count}</span>` : ''}<span class="date">${esc(fmtListDate(m.date))}</span>${m.unread ? '<span class="dot"></span>' : ''}</div>
+      <div class="r-subject">${esc(m.subject || '(aucun objet)')}</div>
+      <div class="r-snippet">${esc(snippet(m.body)) || '&nbsp;'}</div>
+      <button class="star${m.starred ? ' on' : ''}" data-star aria-label="${m.starred ? 'Ne plus suivre' : 'Suivre'}">${svg(m.starred ? 'starOn' : 'star')}</button>
+      ${m.attachment ? `<div class="r-chips"><span class="chip">${fileIcon(m.attachment)}<span>${esc(m.attachment)}</span></span></div>` : ''}
+    </div>
+  </li>`;
+}
+
+function bundleHTML(b) {
+  const c = CATS[b.cat];
+  const badge = bundleBadge(b.cat, b.unreadCount);
+  return `<li class="row bundle${b.unread ? '' : ' read'}" data-cat="${b.cat}">
+    <div class="row-inner">
+      <div class="b-icon" style="color:${c.color}">${svg(c.icon)}</div>
+      <div class="b-title">${esc(c.label)}</div>
+      <div class="b-sub">${esc(b.newest.from)} — ${esc(b.newest.subject || '(aucun objet)')}</div>
+      ${badge ? `<span class="b-badge" style="background:${c.badge}">${esc(badge)}</span>` : ''}
+    </div>
+  </li>`;
+}
+
+function buildItems() {
+  const view = currentView();
+  const q = query.trim().toLowerCase();
+  let items;
+  if (q) {
+    items = db.messages.filter(m => (m.from + ' ' + m.email + ' ' + m.subject + ' ' + m.body + ' ' + m.attachment).toLowerCase().includes(q))
+      .map(m => ({ kind: 'msg', m, t: ts(m) }));
+  } else if (view === 'starred') {
+    items = db.messages.filter(m => m.starred).map(m => ({ kind: 'msg', m, t: ts(m) }));
+  } else if (view === 'principale') {
+    items = db.messages.filter(m => m.category === 'principale').map(m => ({ kind: 'msg', m, t: ts(m) }));
+    for (const cat of BUNDLE_CATS) {
+      const ms = db.messages.filter(m => m.category === cat);
+      if (!ms.length) continue;
+      const newest = ms.reduce((a, b) => (ts(b) > ts(a) ? b : a));
+      const unreadCount = ms.filter(m => m.unread).length;
+      items.push({ kind: 'bundle', cat, newest, unread: unreadCount > 0, unreadCount, t: ts(newest) });
+    }
+  } else {
+    items = db.messages.filter(m => m.category === view).map(m => ({ kind: 'msg', m, t: ts(m) }));
+  }
+  return items.sort((a, b) => b.t - a.t);
+}
+
+function renderList() {
+  const view = currentView();
+  const q = query.trim();
+  $('#sectionLabel').textContent = q ? `Résultats pour « ${q} »` : view === 'starred' ? 'Messages suivis' : (CATS[view] || CATS.principale).label;
+  const items = buildItems();
+  list.innerHTML = items.map(it => (it.kind === 'msg' ? rowHTML(it.m) : bundleHTML(it))).join('');
+  const empty = $('#empty');
+  empty.hidden = items.length > 0;
+  if (!items.length) {
+    empty.innerHTML = `${svg(q ? 'search' : 'inbox')}${q ? 'Aucun message ne correspond à votre recherche.' : 'Aucun message ici.<br>Appuyez sur « Nouveau message » pour ajouter un message reçu.'}`;
+  }
+  // Compteur de l'icône Mail (99+)
+  const ib = db.settings.inboxBadge;
+  const unreadInbox = db.messages.filter(m => m.category === 'principale' && m.unread).length;
+  const n = ib.mode === 'hidden' ? 0 : ib.mode === 'custom' ? ib.value : unreadInbox;
+  const nb = $('#navBadge');
+  nb.hidden = !n;
+  nb.textContent = badgeText(n);
+  // Menu ☰ / retour pendant une recherche
+  const mb = $('#menuBtn');
+  const searching = !!q || document.activeElement === $('#searchInput');
+  mb.innerHTML = svg(searching || view !== 'principale' ? 'back' : 'menu');
+  mb.classList.toggle('back', searching || view !== 'principale');
+  mb.setAttribute('aria-label', searching || view !== 'principale' ? 'Retour' : 'Menu');
+  $('#searchClear').hidden = !q;
+  // Compte
+  const s = db.settings, acc = $('#accountBtn');
+  acc.style.background = s.accountColor;
+  acc.style.color = textOn(s.accountColor);
+  acc.innerHTML = s.accountImage ? `<img src="${s.accountImage}" alt="">` : esc(s.accountLetter || 'S');
+  document.documentElement.style.setProperty('--fs', s.fontScale);
+}
+
+/* =====================================================================
+   Interactions de la liste
+   ===================================================================== */
+let suppressClick = false;
+list.addEventListener('click', e => {
+  if (suppressClick) return;
+  const starBtn = e.target.closest('[data-star]');
+  const row = e.target.closest('.row');
+  if (!row) return;
+  if (row.classList.contains('bundle')) { push({ screen: 'list', view: row.dataset.cat }); window.scrollTo(0, 0); return; }
+  const m = db.messages.find(x => x.id === row.dataset.id);
+  if (!m) return;
+  if (starBtn) { m.starred = !m.starred; persist(); renderList(); return; }
+  push({ screen: 'msg', id: m.id });
+});
+
+// Glisser un message vers la gauche ou la droite pour le supprimer
+list.addEventListener('pointerdown', e => {
+  const row = e.target.closest('.row.msg');
+  if (!row || e.button > 0 || e.target.closest('[data-star]')) return;
+  const inner = row.querySelector('.row-inner');
+  const sx = e.clientX, sy = e.clientY;
+  let dx = 0, decided = false, swiping = false;
+  const move = ev => {
+    const mx = ev.clientX - sx, my = ev.clientY - sy;
+    if (!decided && (Math.abs(mx) > 10 || Math.abs(my) > 10)) {
+      decided = true;
+      swiping = Math.abs(mx) > Math.abs(my) * 1.3;
+      if (swiping) { try { row.setPointerCapture(ev.pointerId); } catch (_) {} }
+    }
+    if (swiping) { dx = mx; inner.style.transform = `translateX(${dx}px)`; }
+  };
+  const end = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if (!swiping) return;
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 80);
+    const w = row.offsetWidth;
+    if (Math.abs(dx) > w * 0.35) {
+      inner.style.transition = 'transform .18s ease';
+      inner.style.transform = `translateX(${dx > 0 ? w : -w}px)`;
+      setTimeout(() => {
+        row.style.height = row.offsetHeight + 'px';
+        row.classList.add('collapsing');
+        requestAnimationFrame(() => { row.style.height = '0px'; row.style.marginTop = `calc(-1 * var(--gap))`; });
+        setTimeout(() => deleteMessage(row.dataset.id), 200);
+      }, 180);
+    } else {
+      inner.style.transition = 'transform .2s ease';
+      inner.style.transform = '';
+      setTimeout(() => { inner.style.transition = ''; }, 220);
+    }
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+});
+
+function deleteMessage(id) {
+  const idx = db.messages.findIndex(m => m.id === id);
+  if (idx < 0) return;
+  const [removed] = db.messages.splice(idx, 1);
+  persist();
+  renderList();
+  snack('1 message supprimé', 'Annuler', () => { db.messages.splice(idx, 0, removed); persist(); renderList(); });
+}
+
+// Barre du haut qui se cache au défilement, bouton flottant qui se replie
+let lastY = window.scrollY;
+window.addEventListener('scroll', () => {
+  const y = window.scrollY, dy = y - lastY;
+  if (y < 72) { topbar.classList.remove('hide'); fab.classList.remove('shrink'); }
+  else if (dy > 6) { topbar.classList.add('hide'); fab.classList.add('shrink'); }
+  else if (dy < -6) { topbar.classList.remove('hide'); fab.classList.remove('shrink'); }
+  lastY = y;
+}, { passive: true });
+
+// Recherche
+const searchInput = $('#searchInput');
+searchInput.addEventListener('input', () => { query = searchInput.value; renderList(); });
+searchInput.addEventListener('focus', renderList);
+searchInput.addEventListener('blur', () => setTimeout(renderList, 0));
+searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') searchInput.blur(); });
+$('#searchClear').innerHTML = svg('close');
+$('#searchClear').addEventListener('click', () => { query = ''; searchInput.value = ''; renderList(); searchInput.focus(); });
+$('#menuBtn').addEventListener('mousedown', e => e.preventDefault());
+$('#menuBtn').addEventListener('click', () => {
+  if (query || document.activeElement === searchInput) { query = ''; searchInput.value = ''; searchInput.blur(); renderList(); return; }
+  if (currentView() !== 'principale') { back(); return; }
+  openDrawer();
+});
+$('#accountBtn').addEventListener('click', () => push({ screen: 'settings' }));
+$('#fabIcon').innerHTML = svg('edit');
+fab.addEventListener('click', () => push({ screen: 'edit', id: null }));
+$('#navMailIcon').innerHTML = svg('mail');
+$('#navMeetIcon').innerHTML = VIDEO_SVG;
+$('#navMail').addEventListener('click', () => {
+  if (query) { query = ''; searchInput.value = ''; renderList(); }
+  if (currentView() !== 'principale') home();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+$('#navMeet').addEventListener('click', () => snack('La visio n’est pas disponible dans cette application.'));
+
+/* =====================================================================
+   Snackbar et boîte de dialogue
+   ===================================================================== */
+let snackTimer;
+function snack(text, actionLabel, action) {
+  const sb = $('#snackbar'), btn = $('#snackAction');
+  $('#snackText').textContent = text;
+  btn.hidden = !actionLabel;
+  btn.textContent = actionLabel || '';
+  btn.onclick = () => { hideSnack(); action && action(); };
+  sb.classList.add('show');
+  fab.classList.add('lift');
+  clearTimeout(snackTimer);
+  snackTimer = setTimeout(hideSnack, actionLabel ? 6000 : 3500);
+}
+function hideSnack() { $('#snackbar').classList.remove('show'); fab.classList.remove('lift'); }
+
+function confirmDialog(title, text, okLabel = 'Confirmer') {
+  return new Promise(resolve => {
+    const wrap = $('#dialogWrap');
+    wrap.innerHTML = `<div class="dialog" role="alertdialog" aria-modal="true"><h2>${esc(title)}</h2><p>${esc(text)}</p>
+      <div class="acts"><button class="btn-text" data-r="0">Annuler</button><button class="btn-text" data-r="1">${esc(okLabel)}</button></div></div>`;
+    wrap.hidden = false;
+    const done = v => { wrap.hidden = true; wrap.innerHTML = ''; resolve(v); };
+    wrap.onclick = e => { const b = e.target.closest('[data-r]'); if (b) done(b.dataset.r === '1'); else if (e.target === wrap) done(false); };
+  });
+}
+
+/* =====================================================================
+   Tiroir (☰)
+   ===================================================================== */
+function openDrawer() {
+  const view = currentView();
+  const unread = c => db.messages.filter(m => m.category === c && m.unread).length;
+  const item = (v, icon, label, cnt, color) => `<button class="d-item${v === view ? ' active' : ''}" data-view="${v}">
+      <span style="${color ? 'color:' + color : ''}">${svg(icon)}</span><span class="lbl">${esc(label)}</span>${cnt ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
+  $('#drawer').innerHTML = `
+    <div class="drawer-head">Boîte de réception</div>
+    ${item('principale', 'inbox', 'Principale', unread('principale'))}
+    ${BUNDLE_CATS.map(c => item(c, CATS[c].icon, CATS[c].label, unread(c), CATS[c].color)).join('')}
+    ${item('starred', 'starOn', 'Messages suivis', db.messages.filter(m => m.starred).length)}
+    <div class="d-sep"></div>
+    <div class="d-caption">Outils</div>
+    <button class="d-item" data-act="new">${svg('add')}<span class="lbl">Ajouter un message reçu</span></button>
+    <button class="d-item" data-act="settings">${svg('settings')}<span class="lbl">Paramètres et sauvegarde</span></button>`;
+  $('#drawer').classList.add('show');
+  $('#scrim').classList.add('show');
+}
+function closeDrawer() { $('#drawer').classList.remove('show'); $('#scrim').classList.remove('show'); }
+$('#scrim').addEventListener('click', closeDrawer);
+$('#drawer').addEventListener('click', e => {
+  const b = e.target.closest('.d-item');
+  if (!b) return;
+  closeDrawer();
+  if (b.dataset.view) {
+    if (b.dataset.view === 'principale') home();
+    else if (b.dataset.view !== currentView()) push({ screen: 'list', view: b.dataset.view });
+    window.scrollTo(0, 0);
+  } else if (b.dataset.act === 'new') push({ screen: 'edit', id: null });
+  else if (b.dataset.act === 'settings') push({ screen: 'settings' });
+});
+
+/* =====================================================================
+   Lecture d'un message
+   ===================================================================== */
+function renderDetail(m) {
+  const L = $('#detailLayer');
+  const d = new Date(m.date);
+  const label = m.category === 'principale' ? 'Boîte de réception' : CATS[m.category].label;
+  L.innerHTML = `
+    <div class="appbar">
+      <button class="icon-btn" data-act="back" aria-label="Retour">${svg('back')}</button>
+      <div class="spacer"></div>
+      <button class="icon-btn" data-act="edit" aria-label="Modifier">${svg('editOutline')}</button>
+      <button class="icon-btn" data-act="delete" aria-label="Supprimer">${svg('delete')}</button>
+      <button class="icon-btn" data-act="unread" aria-label="Marquer comme non lu">${svg('mailOutline')}</button>
+    </div>
+    <div class="d-head">
+      <h1 class="d-subject">${esc(m.subject || '(aucun objet)')}<span class="d-label">${esc(label)}</span></h1>
+      <button class="star${m.starred ? ' on' : ''}" data-act="star" aria-label="Suivre">${svg(m.starred ? 'starOn' : 'star')}</button>
+    </div>
+    <div class="d-sender">
+      ${avatarHTML(m)}
+      <div class="d-who">
+        <div class="d-line1"><span class="d-name">${esc(m.from)}</span><span class="d-date">${esc(fmtListDate(m.date))}</span></div>
+        <button class="d-to" data-act="details">à moi ${svg('expand', '')}</button>
+      </div>
+      <button class="icon-btn" data-act="reply" aria-label="Répondre">${svg('reply')}</button>
+    </div>
+    <div class="d-details" hidden>
+      <div><b>De</b> ${esc(m.from)}${m.email ? ' • ' + esc(m.email) : ''}</div>
+      <div><b>À</b> moi</div>
+      <div><b>Date</b> ${isNaN(d) ? '' : esc(fmtFull.format(d))}</div>
+      ${m.count > 1 ? `<div><b>Fil</b> ${m.count} messages</div>` : ''}
+    </div>
+    <div class="d-body">${linkify(esc(m.body || ''))}</div>
+    ${m.attachment ? `<div class="d-attach">${fileIcon(m.attachment)}<span>${esc(m.attachment)}</span></div>` : ''}
+    <div class="d-actions">
+      <button class="pill-btn" data-act="reply">${svg('reply', '')}Répondre</button>
+      <button class="pill-btn" data-act="reply">${svg('forward', '')}Transférer</button>
+    </div>`;
+  L.onclick = async e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act;
+    if (act === 'back') back();
+    else if (act === 'edit') push({ screen: 'edit', id: m.id });
+    else if (act === 'star') { m.starred = !m.starred; persist(); renderDetail(m); renderList(); }
+    else if (act === 'unread') { m.unread = true; persist(); back(); }
+    else if (act === 'details') L.querySelector('.d-details').hidden = !L.querySelector('.d-details').hidden;
+    else if (act === 'reply') snack('Les réponses ne sont pas envoyées depuis cette application.');
+    else if (act === 'delete') { back(); setTimeout(() => deleteMessage(m.id), 50); }
+  };
+}
+
+/* =====================================================================
+   Ajouter / modifier un message reçu
+   ===================================================================== */
+let draft = null;
+function renderEditor(id) {
+  const L = $('#editorLayer');
+  const existing = id ? db.messages.find(m => m.id === id) : null;
+  draft = existing ? JSON.parse(JSON.stringify(existing)) : normalizeMessage({ id: uid(), from: '', date: toLocalInput(new Date()), unread: true, category: 'principale', avatar: { type: 'letter', color: SWATCHES[Math.floor(Math.random() * SWATCHES.length)] } });
+  if (!existing) draft.from = '';
+  const catChips = Object.entries(CATS).map(([k, c]) => `<label><input type="radio" name="cat" value="${k}"${draft.category === k ? ' checked' : ''}><span>${svg(c.icon, '')}${esc(c.label)}</span></label>`).join('');
+  L.innerHTML = `
+    <div class="appbar">
+      <button class="icon-btn" data-act="close" aria-label="Fermer">${svg('close')}</button>
+      <div class="title">${existing ? 'Modifier' : 'Message reçu'}</div>
+      <button class="btn-primary" data-act="save">Enregistrer</button>
+    </div>
+    <div class="form">
+      <div class="preview-label">Aperçu dans la boîte</div>
+      <div class="preview"><ul class="list" id="previewList" style="padding:0"></ul></div>
+
+      <div class="group-title">Message</div>
+      <label class="field"><span>De (nom affiché)</span><input id="fFrom" maxlength="200" placeholder="Ex. : Grammarly, Google, moi, Kerry…" value="${esc(draft.from)}"></label>
+      <label class="field"><span>Adresse e-mail de l’expéditeur (facultatif)</span><input id="fEmail" type="email" maxlength="200" placeholder="exemple@domaine.com" value="${esc(draft.email)}"></label>
+      <label class="field"><span>Objet</span><input id="fSubject" maxlength="500" value="${esc(draft.subject)}"></label>
+      <label class="field"><span>Message</span><textarea id="fBody" maxlength="20000" placeholder="Le début du texte s’affiche sous l’objet dans la liste.">${esc(draft.body)}</textarea></label>
+
+      <div class="group-title">Date de réception</div>
+      <label class="field"><span>Date et heure (n’importe quelle date, passée ou future)</span><input id="fDate" type="datetime-local" value="${esc(draft.date)}"></label>
+      <div class="quick" style="margin:-4px 0 14px">
+        <button class="qchip" data-date="now">Maintenant</button>
+        <button class="qchip" data-date="-1">Hier</button>
+        <button class="qchip" data-date="-7">Il y a 7 jours</button>
+        <button class="qchip" data-date="-30">Il y a 30 jours</button>
+        <button class="qchip" data-date="-365">Il y a 1 an</button>
+      </div>
+
+      <div class="group-title">Classement</div>
+      <div class="chips-select" id="fCat">${catChips}</div>
+      <div style="height:10px"></div>
+      <div class="switch-row"><div>Non lu<small>Affiché en gras avec une pastille</small></div><label class="switch"><input type="checkbox" id="fUnread"${draft.unread ? ' checked' : ''}><i></i></label></div>
+      <div class="switch-row"><div>Suivi<small>Étoile jaune</small></div><label class="switch"><input type="checkbox" id="fStar"${draft.starred ? ' checked' : ''}><i></i></label></div>
+      <label class="field" style="margin-top:8px"><span>Nombre de messages dans la conversation</span><input id="fCount" type="number" min="1" max="999" inputmode="numeric" value="${draft.count}"><small class="hint">Au-delà de 1, le nombre s’affiche après le nom (ex. « moi, Kerry 2 »).</small></label>
+      <label class="field"><span>Pièce jointe (nom du fichier, facultatif)</span><input id="fAttach" maxlength="200" placeholder="Ex. : facture.pdf" value="${esc(draft.attachment)}"></label>
+
+      <div class="group-title">Photo de l’expéditeur</div>
+      <div class="seg" id="fAvType">
+        <label><input type="radio" name="avt" value="person"${draft.avatar.type === 'person' ? ' checked' : ''}><span>Silhouette</span></label>
+        <label><input type="radio" name="avt" value="letter"${draft.avatar.type === 'letter' ? ' checked' : ''}><span>Lettre</span></label>
+        <label><input type="radio" name="avt" value="image"${draft.avatar.type === 'image' ? ' checked' : ''}><span>Image</span></label>
+      </div>
+      <div class="av-edit">
+        <div id="avPreview"></div>
+        <div class="opts">
+          <div id="avLetterOpts">
+            <label class="field"><span>Lettre (vide = initiale du nom)</span><input id="fLetter" maxlength="2" value="${esc(draft.avatar.letter)}"></label>
+            <div class="swatches" id="fSwatches"></div>
+          </div>
+          <div id="avImageOpts">
+            <button class="btn-tonal" data-act="pick">${svg('photo', 'ic')}Choisir une image</button>
+            <small class="hint" style="display:block;margin-top:8px">Un logo ou une photo, recadré en rond automatiquement.</small>
+          </div>
+        </div>
+      </div>
+      ${existing ? `<div class="danger-zone"><button class="list-btn btn-danger" data-act="delete">${svg('delete')}<span>Supprimer ce message</span></button></div>` : ''}
+    </div>`;
+
+  const f = sel => L.querySelector(sel);
+  const sync = () => {
+    draft.from = f('#fFrom').value;
+    draft.email = f('#fEmail').value.trim();
+    draft.subject = f('#fSubject').value;
+    draft.body = f('#fBody').value;
+    if (f('#fDate').value) draft.date = f('#fDate').value;
+    draft.category = (L.querySelector('input[name=cat]:checked') || {}).value || 'principale';
+    draft.unread = f('#fUnread').checked;
+    draft.starred = f('#fStar').checked;
+    draft.count = Math.max(1, Math.min(999, parseInt(f('#fCount').value, 10) || 1));
+    draft.attachment = f('#fAttach').value.trim();
+    draft.avatar.type = (L.querySelector('input[name=avt]:checked') || {}).value || 'person';
+    draft.avatar.letter = f('#fLetter').value.trim();
+    updateEditorPreview();
+  };
+  const updateEditorPreview = () => {
+    const shown = { ...draft, from: draft.from || 'Expéditeur', avatar: { ...draft.avatar } };
+    f('#previewList').innerHTML = rowHTML(shown);
+    f('#avPreview').innerHTML = avatarHTML(shown);
+    f('#avLetterOpts').hidden = draft.avatar.type !== 'letter';
+    f('#avImageOpts').hidden = draft.avatar.type !== 'image';
+    markSwatches(f('#fSwatches'), draft.avatar.color);
+  };
+  f('#fSwatches').innerHTML = swatchesHTML('fColor', draft.avatar.color);
+  L.oninput = e => {
+    if (e.target.id === 'fColor') { draft.avatar.color = e.target.value; updateEditorPreview(); return; }
+    sync();
+  };
+  L.onchange = sync;
+  L.onclick = async e => {
+    const sw = e.target.closest('[data-color]');
+    if (sw) { draft.avatar.color = sw.dataset.color; updateEditorPreview(); return; }
+    const qd = e.target.closest('[data-date]');
+    if (qd) {
+      const d = new Date();
+      if (qd.dataset.date !== 'now') d.setDate(d.getDate() + parseInt(qd.dataset.date, 10));
+      f('#fDate').value = toLocalInput(d);
+      sync();
+      return;
+    }
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'close') back();
+    else if (b.dataset.act === 'pick') pickImage(src => { draft.avatar.image = src; draft.avatar.type = 'image'; updateEditorPreview(); });
+    else if (b.dataset.act === 'save') saveDraft(!!existing);
+    else if (b.dataset.act === 'delete') {
+      if (await confirmDialog('Supprimer ce message ?', 'Le message sera retiré de la boîte de réception.', 'Supprimer')) {
+        db.messages = db.messages.filter(m => m.id !== draft.id);
+        persist(); renderList(); back();
+        snack('Message supprimé');
+      }
+    }
+  };
+  updateEditorPreview();
+  if (!existing) setTimeout(() => f('#fFrom').focus(), 250);
+}
+
+function saveDraft(isEdit) {
+  if (!draft.from.trim()) { snack('Indiquez le nom de l’expéditeur.'); $('#fFrom').focus(); return; }
+  if (draft.avatar.type === 'image' && !draft.avatar.image) draft.avatar.type = draft.avatar.letter || draft.avatar.color ? 'letter' : 'person';
+  const m = normalizeMessage(draft);
+  const idx = db.messages.findIndex(x => x.id === m.id);
+  if (idx >= 0) db.messages[idx] = m; else db.messages.push(m);
+  if (!persist()) return;
+  renderList();
+  back();
+  snack(isEdit ? 'Message modifié' : 'Message ajouté à la boîte de réception');
+}
+
+// Choix d'une image : recadrée en carré 128 px pour rester léger
+function pickImage(cb) {
+  const input = $('#avatarFile');
+  input.value = '';
+  input.onchange = () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const S = 128, c = document.createElement('canvas');
+        c.width = c.height = S;
+        const ctx = c.getContext('2d');
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+        cb(c.toDataURL('image/png'));
+      };
+      img.onerror = () => snack('Image illisible.');
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+/* =====================================================================
+   Paramètres et sauvegarde
+   ===================================================================== */
+function renderSettings() {
+  const L = $('#settingsLayer');
+  const s = db.settings;
+  const badgeRow = (key, label, icon, color, b, autoLabel) => `
+    <div class="badge-row" data-badge="${key}">
+      <div class="lbl"><span style="color:${color}">${svg(icon)}</span><span>${esc(label)}</span></div>
+      <select aria-label="Mode du compteur ${esc(label)}">
+        <option value="auto"${b.mode === 'auto' ? ' selected' : ''}>${autoLabel}</option>
+        <option value="custom"${b.mode === 'custom' ? ' selected' : ''}>Personnalisé</option>
+        <option value="hidden"${b.mode === 'hidden' ? ' selected' : ''}>Masqué</option>
+      </select>
+      <input type="number" min="0" max="9999" inputmode="numeric" value="${b.value}" aria-label="Valeur" ${b.mode === 'custom' ? '' : 'disabled'}>
+    </div>`;
+  L.innerHTML = `
+    <div class="appbar">
+      <button class="icon-btn" data-act="close" aria-label="Retour">${svg('back')}</button>
+      <div class="title">Paramètres</div>
+    </div>
+    <div class="form">
+      <div class="group-title">Compte (rond en haut à droite)</div>
+      <div class="av-edit">
+        <span class="avatar" id="accPreview"></span>
+        <div class="opts">
+          <label class="field"><span>Initiale</span><input id="sLetter" maxlength="2" value="${esc(s.accountLetter)}"></label>
+          <div class="swatches" id="sSwatches"></div>
+          <div class="quick"><button class="qchip" data-act="accImg">Utiliser une photo</button>${s.accountImage ? '<button class="qchip" data-act="accImgDel">Retirer la photo</button>' : ''}</div>
+        </div>
+      </div>
+
+      <div class="group-title">Taille du texte</div>
+      <div class="seg" id="sFont">
+        ${[0.9, 1, 1.1, 1.2].map(v => `<label><input type="radio" name="fs" value="${v}"${s.fontScale === v ? ' checked' : ''}><span>${Math.round(v * 100)} %</span></label>`).join('')}
+      </div>
+
+      <div class="group-title">Compteurs</div>
+      ${badgeRow('inbox', 'Icône Mail (99+)', 'mail', 'var(--on-var)', s.inboxBadge, 'Non lus')}
+      ${BUNDLE_CATS.map(c => badgeRow(c, CATS[c].label, CATS[c].icon, CATS[c].color, s.bundleBadges[c], 'Non lus')).join('')}
+      <small class="hint" style="display:block;margin:2px 4px 0;color:var(--muted);font-size:12.5px">« Non lus » compte automatiquement les messages non lus. « Personnalisé » affiche le nombre de votre choix (ex. 30 nouveaux, 99+).</small>
+
+      <div class="group-title">Sauvegarde</div>
+      <button class="list-btn" data-act="export">${svg('download')}<div>Exporter les messages<small>Télécharge un fichier .json de sauvegarde</small></div></button>
+      <button class="list-btn" data-act="import">${svg('upload')}<div>Importer une sauvegarde<small>Remplace les messages actuels</small></div></button>
+      <button class="list-btn" data-act="demo">${svg('restore')}<div>Restaurer la démonstration<small>Revient aux messages de la capture d’écran</small></div></button>
+      <button class="list-btn btn-danger" data-act="wipe">${svg('clear')}<div>Vider la boîte de réception<small>Supprime tous les messages</small></div></button>
+      <small class="hint" style="display:block;margin:14px 4px 0;color:var(--muted);font-size:12.5px;line-height:1.5">Les messages sont enregistrés uniquement sur cet appareil, dans ce navigateur. Exportez-les régulièrement pour ne rien perdre.</small>
+    </div>`;
+  const paintAccount = () => {
+    const p = L.querySelector('#accPreview');
+    p.style.background = s.accountColor; p.style.color = textOn(s.accountColor);
+    p.innerHTML = s.accountImage ? `<img src="${s.accountImage}" alt="">` : esc(s.accountLetter || 'S');
+    markSwatches(L.querySelector('#sSwatches'), s.accountColor);
+  };
+  L.querySelector('#sSwatches').innerHTML = swatchesHTML('sColor', s.accountColor);
+  const save = () => { persist(); renderList(); };
+  L.oninput = e => {
+    const t = e.target;
+    if (t.id === 'sLetter') { s.accountLetter = t.value.trim() || 'S'; paintAccount(); save(); }
+    else if (t.id === 'sColor') { s.accountColor = t.value; paintAccount(); save(); }
+    else if (t.name === 'fs') { s.fontScale = Number(t.value); save(); }
+    else {
+      const row = t.closest('[data-badge]');
+      if (!row) return;
+      const key = row.dataset.badge;
+      const b = key === 'inbox' ? s.inboxBadge : s.bundleBadges[key];
+      if (t.tagName === 'SELECT') { b.mode = t.value; row.querySelector('input').disabled = b.mode !== 'custom'; }
+      else b.value = Math.max(0, parseInt(t.value, 10) || 0);
+      save();
+    }
+  };
+  L.onclick = async e => {
+    const sw = e.target.closest('[data-color]');
+    if (sw) { s.accountColor = sw.dataset.color; paintAccount(); save(); return; }
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const act = b.dataset.act;
+    if (act === 'close') back();
+    else if (act === 'accImg') pickImage(src => { s.accountImage = src; save(); renderSettings(); });
+    else if (act === 'accImgDel') { s.accountImage = ''; save(); renderSettings(); }
+    else if (act === 'export') exportData();
+    else if (act === 'import') importData();
+    else if (act === 'demo') {
+      if (await confirmDialog('Restaurer la démonstration ?', 'Vos messages actuels seront remplacés par ceux de la capture d’écran.', 'Restaurer')) {
+        db = demoData(); save(); renderSettings(); snack('Démonstration restaurée');
+      }
+    } else if (act === 'wipe') {
+      if (await confirmDialog('Vider la boîte de réception ?', 'Tous les messages seront supprimés. Pensez à exporter une sauvegarde avant.', 'Tout supprimer')) {
+        db.messages = []; save(); snack('Boîte de réception vidée');
+      }
+    }
+  };
+  paintAccount();
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `boite-reception-${toLocalInput(new Date()).slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  snack('Sauvegarde exportée');
+}
+function importData() {
+  const input = $('#importFile');
+  input.value = '';
+  input.onchange = () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data || !Array.isArray(data.messages)) throw new Error('format');
+        if (!(await confirmDialog('Importer cette sauvegarde ?', `${data.messages.length} message(s) vont remplacer les messages actuels.`, 'Importer'))) return;
+        db = normalizeDB(data); persist(); renderList(); renderSettings(); snack('Sauvegarde importée');
+      } catch (e) { snack('Fichier invalide : ce n’est pas une sauvegarde de la boîte de réception.'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+/* =====================================================================
+   Rendu général selon l'écran courant
+   ===================================================================== */
+function render() {
+  const r = route();
+  closeDrawer();
+  const layers = { msg: $('#detailLayer'), edit: $('#editorLayer'), settings: $('#settingsLayer') };
+  for (const [k, el] of Object.entries(layers)) if (k !== r.screen) { el.hidden = true; el.innerHTML = ''; }
+  if (r.screen === 'msg') {
+    const m = db.messages.find(x => x.id === r.id);
+    if (!m) { back(); return; }
+    if (m.unread) { m.unread = false; persist(); }
+    renderDetail(m);
+    layers.msg.hidden = false; layers.msg.scrollTop = 0;
+  } else if (r.screen === 'edit') {
+    if (layers.edit.hidden || layers.edit.dataset.id !== String(r.id)) { renderEditor(r.id); layers.edit.dataset.id = String(r.id); layers.edit.scrollTop = 0; }
+    layers.edit.hidden = false;
+  } else if (r.screen === 'settings') {
+    renderSettings(); layers.settings.hidden = false;
+  }
+  if (r.screen !== 'edit') delete layers.edit.dataset.id;
+  document.documentElement.classList.toggle('locked', r.screen !== 'list');
+  renderList();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#dialogWrap').hidden) return;
+  if ($('#drawer').classList.contains('show')) closeDrawer();
+  else if (route().screen !== 'list' || currentView() !== 'principale') back();
+});
+
+/* =====================================================================
+   Démarrage
+   ===================================================================== */
+db = load();
+if (!history.state || !history.state.screen) history.replaceState({ ...DEFAULT_ROUTE }, '', '#/');
+else if (history.state.screen !== 'list') history.replaceState({ ...DEFAULT_ROUTE }, '', '#/');
+$('#menuBtn').innerHTML = svg('menu');
+render();
+
+// Mode hors-ligne quand l'application est installée (servie en https)
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
